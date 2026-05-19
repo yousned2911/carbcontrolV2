@@ -1,0 +1,30 @@
+{
+  "common": {
+    "login": "تسجيل الدخول",
+    "signup": "إنشاء حساب",
+    "dashboard": "لوحة القيادة",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "sign_in_with_google": "تسجيل الدخول عبر Google",
+    "or_continue_with": "أو الاستمرار عبر",
+    "no_account": "ليس لديك حساب؟",
+    "have_account": "لديك حساب بالفعل؟",
+    "sign_in": "تسجيل الدخول",
+    "sign_up": "إنشاء حساب",
+    "full_name": "الاسم الكامل",
+    "logging_in": "جارٍ تسجيل الدخول...",
+    "creating_account": "جارٍ إنشاء الحساب..."
+  },
+  "sidebar": {
+    "dashboard": "لوحة القيادة",
+    "vehicles": "المركبات",
+    "fuel_center": "مركز الوقود",
+    "maintenance_hub": "مركز الصيانة",
+    "documents": "المستندات",
+    "reports": "التقارير",
+    "settings": "الإعدادات",
+    "user_management": "إدارة المستخدمين",
+    "depots": "المستودعات",
+    "my_page": "صفحتي"
+  }
+}

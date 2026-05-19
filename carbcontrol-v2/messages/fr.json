@@ -1,0 +1,30 @@
+{
+  "common": {
+    "login": "Connexion",
+    "signup": "Inscription",
+    "dashboard": "Tableau de bord",
+    "email": "Email",
+    "password": "Mot de passe",
+    "sign_in_with_google": "Se connecter avec Google",
+    "or_continue_with": "Ou continuer avec",
+    "no_account": "Pas encore de compte ?",
+    "have_account": "Déjà un compte ?",
+    "sign_in": "Se connecter",
+    "sign_up": "S'inscrire",
+    "full_name": "Nom complet",
+    "logging_in": "Connexion...",
+    "creating_account": "Création du compte..."
+  },
+  "sidebar": {
+    "dashboard": "Tableau de bord",
+    "vehicles": "Véhicules",
+    "fuel_center": "Centre de carburant",
+    "maintenance_hub": "Centre de maintenance",
+    "documents": "Documents",
+    "reports": "Rapports",
+    "settings": "Paramètres",
+    "user_management": "Gestion des utilisateurs",
+    "depots": "Dépôts",
+    "my_page": "Ma page"
+  }
+}
