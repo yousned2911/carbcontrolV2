@@ -17,8 +17,10 @@ import {
   Globe,
   Menu,
   X,
+  Bell,
+  User,
 } from 'lucide-react'
-import { ReactNode, useState, useEffect, useCallback } from 'react'
+import { ReactNode, useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 
 type NavItem = {
@@ -59,14 +61,18 @@ function getNavGroups(role: string): NavGroup[] {
   const canSeeDocuments = role === 'company_admin'
   const canSeeReports = ['company_admin', 'fleet_manager'].includes(role)
   const canSeeLiveMap = ['company_admin', 'fleet_manager'].includes(role)
+  const canSeeDrivers = ['company_admin', 'fleet_manager'].includes(role)
+  const canSeeAlerts = !['driver'].includes(role)
   const canSeeSettings = role === 'company_admin'
 
   if (canSeeDashboard) mainItems.push({ href: '', label: 'Dashboard', icon: LayoutDashboard })
   if (canSeeLiveMap) mainItems.push({ href: '/map', label: 'Live Map', icon: MapPin })
   if (canSeeVehicles) mainItems.push({ href: '/vehicles', label: 'Vehicles', icon: Truck })
+  if (canSeeDrivers) mainItems.push({ href: '/drivers', label: 'Drivers', icon: User })
   if (canSeeFuelCenter) mainItems.push({ href: '/fuel', label: 'Fuel Center', icon: Fuel })
   if (canSeeMaintenance) mainItems.push({ href: '/maintenance', label: 'Maintenance Hub', icon: Wrench })
   if (canSeeDocuments) mainItems.push({ href: '/documents', label: 'Documents', icon: FileText })
+  if (canSeeAlerts) mainItems.push({ href: '/alerts', label: 'Alerts', icon: Bell })
   if (canSeeReports) mainItems.push({ href: '/reports', label: 'Reports', icon: BarChart3 })
 
   if (mainItems.length > 0) groups.push({ items: mainItems })
@@ -97,8 +103,14 @@ export function DashboardShell({
   const basePath = `/${locale}/dashboard/${companySlug}`
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [alertDropdownOpen, setAlertDropdownOpen] = useState(false)
+  const [alertCount, setAlertCount] = useState(0)
+  const [recentAlerts, setRecentAlerts] = useState<
+    { id: string; message: string | null; severity: string; created_at: string }[]
+  >([])
   const isRtl = locale === 'ar'
   const dir = isRtl ? 'rtl' : 'ltr'
+  const alertRef = useRef<HTMLDivElement>(null)
 
   const navGroups = getNavGroups(effectiveRole)
 
@@ -121,6 +133,68 @@ export function DashboardShell({
     document.addEventListener('click', handler)
     return () => document.removeEventListener('click', handler)
   }, [menuOpen])
+
+  useEffect(() => {
+    if (!alertDropdownOpen) return
+    const handler = (e: MouseEvent) => {
+      if (alertRef.current && !alertRef.current.contains(e.target as Node)) {
+        setAlertDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [alertDropdownOpen])
+
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        const res = await fetch('/api/alerts')
+        if (res.ok) {
+          const data = await res.json()
+          const unacknowledged = (data.data || []).filter(
+            (a: { acknowledged: boolean }) => !a.acknowledged
+          )
+          setAlertCount(unacknowledged.length)
+          setRecentAlerts((data.data || []).slice(0, 5))
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    fetchAlerts()
+  }, [])
+
+  useEffect(() => {
+    const supabaseClient = createClient()
+    const channel = supabaseClient
+      .channel('alerts-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'alerts',
+        },
+        (payload) => {
+          const row = payload.new as Record<string, unknown>
+          setAlertCount((c) => c + 1)
+          setRecentAlerts((prev) => [
+            {
+              id: row.id as string,
+              message: (row.message as string) || null,
+              severity: row.severity as string,
+              created_at: (row.created_at as string) || new Date().toISOString(),
+            },
+            ...prev.slice(0, 4),
+          ])
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabaseClient.removeChannel(channel)
+    }
+  }, [])
 
   const toggleLocale = isRtl ? 'fr' : 'ar'
   const togglePath = pathname.replace(`/${locale}`, `/${toggleLocale}`)
@@ -148,8 +222,9 @@ export function DashboardShell({
         <div className="flex h-14 items-center justify-between border-b px-4">
           <Link
             href={basePath}
-            className="truncate text-lg font-bold"
+            className="flex items-center gap-2 truncate text-lg font-bold"
           >
+            <img src="/logo.svg" alt="CarbControl" className="h-6 w-6" />
             {companyName}
           </Link>
           <button
@@ -208,6 +283,78 @@ export function DashboardShell({
           </div>
 
           <div className="flex items-center gap-4">
+            {effectiveRole !== 'driver' && (
+              <div className="relative" ref={alertRef}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setAlertDropdownOpen(!alertDropdownOpen)
+                  }}
+                  className="relative rounded-lg p-1.5 transition-colors hover:bg-gray-100"
+                >
+                  <Bell className="h-5 w-5 text-gray-600" />
+                  {alertCount > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                      {alertCount > 99 ? '99+' : alertCount}
+                    </span>
+                  )}
+                </button>
+
+                {alertDropdownOpen && (
+                  <div
+                    className={cn(
+                      'absolute mt-2 w-80 rounded-md border bg-white shadow-lg',
+                      isRtl ? 'left-0' : 'right-0'
+                    )}
+                  >
+                    <div className="border-b px-3 py-2">
+                      <p className="text-sm font-semibold">Notifications</p>
+                    </div>
+                    <div className="max-h-[300px] overflow-y-auto">
+                      {recentAlerts.length === 0 ? (
+                        <p className="p-4 text-center text-sm text-muted-foreground">
+                          No notifications
+                        </p>
+                      ) : (
+                        recentAlerts.map((a) => (
+                          <div key={a.id} className="border-b px-3 py-2.5 last:border-b-0">
+                            <div className="flex items-start gap-2">
+                              <span
+                                className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${
+                                  a.severity === 'critical'
+                                    ? 'bg-red-500'
+                                    : a.severity === 'warning'
+                                      ? 'bg-orange-500'
+                                      : 'bg-blue-500'
+                                }`}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="line-clamp-2 text-sm text-gray-700">
+                                  {a.message || 'No message'}
+                                </p>
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                  {new Date(a.created_at).toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="border-t p-2">
+                      <Link
+                        href={basePath + '/alerts'}
+                        onClick={() => setAlertDropdownOpen(false)}
+                        className="block rounded px-2 py-1.5 text-center text-sm font-medium text-primary hover:bg-accent"
+                      >
+                        View All
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <Link
               href={togglePath}
               className="flex items-center gap-1 text-sm text-gray-600 transition-colors hover:text-gray-900"

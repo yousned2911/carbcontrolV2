@@ -12,15 +12,28 @@ export async function PATCH(request: Request, { params }: Props) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { name } = await request.json()
-  if (!name || typeof name !== 'string' || !name.trim()) {
-    return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+  const body = await request.json()
+  const updateData: Record<string, unknown> = {}
+
+  if (body.name !== undefined) {
+    if (typeof body.name !== 'string' || !body.name.trim()) {
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+    }
+    updateData.name = body.name.trim()
+  }
+
+  if (body.geofence !== undefined) {
+    updateData.geofence = body.geofence
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
   }
 
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('depots')
-    .update({ name: name.trim() })
+    .update(updateData)
     .eq('id', params.id)
     .eq('company_id', auth.companyId)
     .select()

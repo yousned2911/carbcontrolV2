@@ -6,11 +6,21 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
-import { Plus, Pencil, Trash2, Save, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, X, MapPin } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import dynamic from 'next/dynamic'
+
+const GeofenceEditor = dynamic(() => import('@/components/GeofenceEditor'), { ssr: false })
 
 type Depot = {
   id: string
   name: string
+  geofence: Record<string, unknown> | null
   vehicle_count?: number
 }
 
@@ -22,6 +32,8 @@ export default function DepotsPage() {
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
+  const [geofenceDepot, setGeofenceDepot] = useState<Depot | null>(null)
+  const [geofenceDialogOpen, setGeofenceDialogOpen] = useState(false)
 
   const fetchDepots = useCallback(async () => {
     const res = await fetch('/api/depots')
@@ -112,6 +124,24 @@ export default function DepotsPage() {
     setEditName(depot.name)
   }
 
+  const openGeofence = (depot: Depot) => {
+    setGeofenceDepot(depot)
+    setGeofenceDialogOpen(true)
+  }
+
+  const handleGeofenceSave = async (geojson: Record<string, unknown>) => {
+    if (!geofenceDepot) return
+    const fenceValue = Object.keys(geojson).length > 0 ? geojson : null
+    await fetch(`/api/depots/${geofenceDepot.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ geofence: fenceValue }),
+    })
+    setGeofenceDialogOpen(false)
+    setGeofenceDepot(null)
+    fetchDepots()
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -169,6 +199,7 @@ export default function DepotsPage() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Vehicles</TableHead>
+                  <TableHead>Geofence</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -203,9 +234,23 @@ export default function DepotsPage() {
                       )}
                     </TableCell>
                     <TableCell>{depot.vehicle_count ?? 0}</TableCell>
+                    <TableCell>
+                      {depot.geofence ? (
+                        <span className="text-xs text-green-600">Defined</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">None</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
                       {editingId !== depot.id && (
                         <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openGeofence(depot)}
+                          >
+                            <MapPin className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -231,6 +276,19 @@ export default function DepotsPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={geofenceDialogOpen} onOpenChange={setGeofenceDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              Edit Geofence — {geofenceDepot?.name || ''}
+            </DialogTitle>
+          </DialogHeader>
+          {geofenceDepot && (
+            <GeofenceEditor onSave={handleGeofenceSave} />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

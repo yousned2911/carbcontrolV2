@@ -53,12 +53,19 @@ export async function middleware(request: NextRequest) {
     pathWithoutLocale === '/login' || pathWithoutLocale === '/signup'
   const isAuthCallback = pathWithoutLocale.startsWith('/auth/callback')
   const isOnboarding = pathWithoutLocale === '/onboarding'
+  const isMarketingPage =
+    pathWithoutLocale === '/' || pathWithoutLocale === ''
 
   if (isAuthCallback) {
     return response
   }
 
-  if (!session && !isAuthPage) {
+  if (session && isMarketingPage) {
+    const dashboardUrl = new URL(`/${locale}/dashboard`, request.url)
+    return NextResponse.redirect(dashboardUrl)
+  }
+
+  if (!session && !isAuthPage && !isMarketingPage) {
     const loginUrl = new URL(`/${locale}/login`, request.url)
     return NextResponse.redirect(loginUrl)
   }

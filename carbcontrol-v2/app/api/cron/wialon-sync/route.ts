@@ -3,11 +3,26 @@ import { createAdminClient } from '@/lib/supabaseAdmin'
 import { wialonRequest } from '@/lib/wialon'
 
 export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
   const authHeader = request.headers.get('authorization')
+  const querySecret = searchParams.get('secret')
   const secret = process.env.CRON_SECRET
 
-  if (!secret || authHeader !== `Bearer ${secret}`) {
+  const authorized =
+    !!secret &&
+    (authHeader === `Bearer ${secret}` || querySecret === secret)
+
+  if (!authorized) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  if (!process.env.WIALON_API_URL || !process.env.WIALON_TOKEN) {
+    return NextResponse.json({
+      message: 'Wialon not configured (WIALON_API_URL or WIALON_TOKEN missing)',
+      processed: 0,
+      failed: 0,
+      error: null,
+    })
   }
 
   const supabase = createAdminClient()
@@ -19,7 +34,12 @@ export async function GET(request: Request) {
     .neq('tracker_id', '')
 
   if (!vehicles || vehicles.length === 0) {
-    return NextResponse.json({ message: 'No vehicles with tracker IDs', processed: 0 })
+    return NextResponse.json({
+      message: 'No vehicles with tracker IDs',
+      processed: 0,
+      failed: 0,
+      error: null,
+    })
   }
 
   const events: { vehicle_id: string; event_type: string; amount_liters: number }[] = []
